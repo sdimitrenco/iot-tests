@@ -4,7 +4,9 @@ package main
 // tinygo flash -target=pico2-w -stack-size=8kb -scheduler=tasks .
 
 import (
+	_ "embed"
 	"machine"
+	"strings"
 	"time"
 
 	"github.com/soypat/cyw43439"
@@ -13,10 +15,22 @@ import (
 	"github.com/soypat/lneto/x/xnet"
 )
 
-const (
-	ssid     = "easybell DSL-RM4H"
-	password = "32600882067192021602"
-)
+//go:embed conection-data.txt
+var configData string
+
+var ssid, password = parseWifiConfig(configData)
+
+func parseWifiConfig(data string) (ssid, password string) {
+	for _, line := range strings.Split(data, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "wifi-name ") {
+			ssid = strings.TrimPrefix(line, "wifi-name ")
+		} else if strings.HasPrefix(line, "wifi-pass ") {
+			password = strings.TrimPrefix(line, "wifi-pass ")
+		}
+	}
+	return
+}
 
 const listenPort = 80
 
