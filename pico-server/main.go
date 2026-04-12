@@ -86,54 +86,57 @@ func main() {
 	var buf [512]byte
 
 	for {
-		err = stack.ListenTCP(&conn, listenPort)
-		if err != nil {
-			println("listen error:", err.Error())
-			time.Sleep(3 * time.Second)
-			conn.Abort()
-			continue
-		}
+        err = stack.ListenTCP(&conn, listenPort)
+        if err != nil {
+            println("listen error:", err.Error())
+            time.Sleep(50 * time.Millisecond) 
+            conn.Abort()
+            continue
+        }
 
-		println("Waiting for client...")
-		for conn.State().IsPreestablished() {
-			time.Sleep(5 * time.Millisecond)
-		}
+        println("Waiting for client...")
+        for conn.State().IsPreestablished() {
+            time.Sleep(5 * time.Millisecond)
+        }
 
-		n, _ := conn.Read(buf[:])
-		path := parsePath(buf[:n])
+        n, err := conn.Read(buf[:])
+        if err == nil && n > 0 {
+            path := parsePath(buf[:n])
 
-		switch path {
-		case "/blue/on":
-			ledBlue.High()
-		case "/blue/off":
-			ledBlue.Low()
-		case "/green/on":
-			ledGreen.High()
-		case "/green/off":
-			ledGreen.Low()
-		}
+            switch path {
+            case "/blue/on":
+                ledBlue.High()
+            case "/blue/off":
+                ledBlue.Low()
+            case "/green/on":
+                ledGreen.High()
+            case "/green/off":
+                ledGreen.Low()
+            }
 
-		writeResponse(&conn, ledBlue.Get(), ledGreen.Get())
-		println("Response sent!")
-		time.Sleep(100 * time.Millisecond)
-		conn.Close()
-		time.Sleep(time.Second)
-	}
+            writeResponse(&conn, ledBlue.Get(), ledGreen.Get())
+            println("Response sent for path:", path)
+        }
+
+        conn.Close()
+
+        for !conn.State().IsClosed() {
+            time.Sleep(5 * time.Millisecond)
+        }
+    }				
 }
 
 // parsePath extracts the URL path from a raw HTTP request line ("GET /path HTTP/1.1").
 func parsePath(req []byte) string {
-	start := -1
-	for i, b := range req {
-		if b == ' ' {
-			if start == -1 {
-				start = i + 1
-			} else {
-				return string(req[start:i])
-			}
-		}
-	}
-	return "/"
+    requestLine := strings.SplitN(string(req), "\r\n", 2)[0]
+    
+    parts := strings.Split(requestLine, " ")
+
+    if len(parts) >= 2 && parts[0] == "GET" {
+        return parts[1] // Возвращаем сам путь
+    }
+    
+    return "/" 
 }
 
 func writeResponse(conn *tcp.Conn, blue, green bool) {
